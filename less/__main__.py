@@ -1,6 +1,8 @@
-from click import group, argument
+from click import group, argument, option, Choice
 
 from langchain import PromptTemplate, HuggingFaceHub, LLMChain
+
+from langchain.llms import OpenAI
 
 
 @group()
@@ -10,7 +12,8 @@ def main():
 
 @main.command()
 @argument('text', type = str)
-def act(text: str):
+@option('--engine', '-e', type = Choice(('davinci', 'flan'), case_sensitive = False), default = 'flan')
+def act(text: str, engine: str):
     template = PromptTemplate(
         template = 'question: {question}? answer:',
         input_variables = ('question', )
@@ -20,16 +23,14 @@ def act(text: str):
 
     # print(prompt)
 
-    hub = HuggingFaceHub(
-        repo_id = 'google/flan-t5-large',
-        model_kwargs = {
-            'temperature': 1e-10
-        }
-    )
-
     chain = LLMChain(
         prompt = template,
-        llm = hub
+        llm = HuggingFaceHub(
+            repo_id = 'google/flan-t5-large',
+            model_kwargs = {
+                'temperature': 1e-10
+            }
+        ) if engine == 'flan' else OpenAI(model_name = 'text-davinci-003')
     )
 
     print('evaluating...')
