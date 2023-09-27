@@ -3,6 +3,9 @@ from click import group, argument, option, Choice
 from langchain import PromptTemplate, HuggingFaceHub, LLMChain
 
 from langchain.llms import OpenAI
+from chromadb import PersistentClient
+from pandas import read_csv
+from tqdm import tqdm
 
 
 @group()
@@ -44,6 +47,62 @@ def act(text: str, engine: str):
     #     ]
     # ))
     # print(chain.run(text.split(',')))
+
+
+@main.command()
+@argument('text', type = str, default = None, required = False)
+@option('-d', '--documents', type = str, help = 'path to the .tsv file with input documents which will be loaded into the database')
+@option('-c', '--cache', type = str, help = 'path to the cached embeddings', default = 'assets/chroma')
+@option('-s', '--batch-size', type = int, help = 'number of items passed to the embedding model at once', default = 256)
+def embed(text: str, documents: str, cache: str, batch_size: int):
+    client = PersistentClient(path = cache)
+    aneks = client.get_or_create_collection(name = 'aneks')
+
+    if documents is None:
+        if text is None:
+            raise ValueError('Text must be passed when there is no option --documents')
+
+        result = aneks.query(
+            query_texts = [text],
+            n_results = 3
+        )
+
+        print(result)
+    else:
+        df = read_csv(documents, sep = '\t')
+
+        documents = []
+        metadatas = []
+        ids = []
+
+        def add():
+            nonlocal documents, metadatas, ids
+
+            aneks.add(
+                documents = documents,
+                metadatas = metadatas,
+                ids = ids
+            )
+
+            documents = []
+            metadatas = []
+            ids = []
+
+        with tqdm(total = len(df.index)) as pbar:
+            for _, row in df.iterrows():
+                documents.append(row['text'])
+                metadatas.append({
+                    'id': row['id'],
+                    'source': row['source']
+                })
+                ids.append(f'{row["source"]}-{row["id"]}')
+
+                if len(documents) >= batch_size:
+                    add()
+
+                pbar.update()
+
+        add()
 
 
 if __name__ == '__main__':
