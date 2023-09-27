@@ -1,6 +1,7 @@
 from click import group, argument, option, Choice
 
 from langchain import PromptTemplate, HuggingFaceHub, LLMChain
+from langchain.embeddings import HuggingFaceEmbeddings
 
 from langchain.llms import OpenAI
 from chromadb import PersistentClient
@@ -54,9 +55,18 @@ def act(text: str, engine: str):
 @option('-d', '--documents', type = str, help = 'path to the .tsv file with input documents which will be loaded into the database')
 @option('-c', '--cache', type = str, help = 'path to the cached embeddings', default = 'assets/chroma')
 @option('-s', '--batch-size', type = int, help = 'number of items passed to the embedding model at once', default = 256)
-def embed(text: str, documents: str, cache: str, batch_size: int):
+@option('-m', '--model', type = str, help = 'embedding model identifier', default = 'intfloat/multilingual-e5-large')
+def embed(text: str, documents: str, cache: str, batch_size: int, model: str):
     client = PersistentClient(path = cache)
-    aneks = client.get_or_create_collection(name = 'aneks')
+    aneks = client.get_or_create_collection(
+        name = 'aneks',
+        embedding_function = HuggingFaceEmbeddings(
+            model_name = model,
+            model_kwargs = {
+                'device': 'cuda'
+            }
+        ).embed_documents
+    )
 
     if documents is None:
         if text is None:
