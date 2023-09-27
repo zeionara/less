@@ -8,6 +8,8 @@ from chromadb import PersistentClient
 from pandas import read_csv
 from tqdm import tqdm
 
+from .Talker import Talker
+
 
 @group()
 def main():
@@ -56,7 +58,9 @@ def act(text: str, engine: str):
 @option('-c', '--cache', type = str, help = 'path to the cached embeddings', default = 'assets/chroma')
 @option('-s', '--batch-size', type = int, help = 'number of items passed to the embedding model at once', default = 256)
 @option('-m', '--model', type = str, help = 'embedding model identifier', default = 'intfloat/multilingual-e5-large')
-def embed(text: str, documents: str, cache: str, batch_size: int, model: str):
+@option('-l', '--llm', type = Choice(('hugging-face', 'openai'), case_sensitive = False), help = 'large language model type', default = 'hugging-face')
+@option('-v', '--verbose', is_flag = True, help = 'whether to print additional info about the query like generated prompt, etc')
+def embed(text: str, documents: str, cache: str, batch_size: int, model: str, llm: str, verbose: bool):
     client = PersistentClient(path = cache)
     aneks = client.get_or_create_collection(
         name = 'aneks',
@@ -72,12 +76,7 @@ def embed(text: str, documents: str, cache: str, batch_size: int, model: str):
         if text is None:
             raise ValueError('Text must be passed when there is no option --documents')
 
-        result = aneks.query(
-            query_texts = [text],
-            n_results = 3
-        )
-
-        print(result)
+        Talker(aneks = aneks, model_type = llm).talk(text, verbose) | print
     else:
         df = read_csv(documents, sep = '\t')
 
