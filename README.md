@@ -1,4 +1,4 @@
-# Sentimeter
+# Less
 
 **L**anguage **ess**ays - experiments with the latest **LLM** models and **LangChain** package
 
